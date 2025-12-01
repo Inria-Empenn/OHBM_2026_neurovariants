@@ -1,0 +1,49 @@
+{
+    "data_path": "/data",
+    "input": {
+        "anat": "sub-{subject_id}/anat/sub-{subject_id}_run-01_T1w.nii.gz",
+        "func": "sub-{subject_id}/func/sub-{subject_id}_task-EMOTION_acq-lr_bold.nii.gz",
+        "events": "sub-{subject_id}/func/sub-{subject_id}_task-EMOTION_acq-lr_event.tsv"
+    },
+    "result_path": "/results",
+    "work_path": "/work",
+    "task": "emotion",
+    "subjects": [
+        "190031",
+        "395958",
+        "885975",
+        "116524",
+        "137936",
+        "693764",
+        "387959",
+        "818859",
+        "727654",
+        "154431",
+        "160729",
+        "196144",
+        "979984",
+        "623844",
+        "627852",
+        "180836",
+        "161327",
+        "195647",
+        "233326",
+        "654350",
+        "552544",
+        "815247",
+        "191841",
+        "686969",
+        "318637",
+        "198451",
+        "163432",
+        "397861",
+        "724446",
+        "627549"
+    ],
+    "no_group_subjects": [
+        "161327"
+    ],
+    "slices_nb": 72,
+    "tr": 0.72,
+    "units": "secs"
+}
