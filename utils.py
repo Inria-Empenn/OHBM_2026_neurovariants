@@ -1,45 +1,105 @@
-import os
-
-import matplotlib.pyplot as plt
-import nilearn.image as nimg
 import numpy as np
 import pandas as pd
-from matplotlib.colors import LinearSegmentedColormap
-from nilearn import plotting
-from scipy.cluster.hierarchy import cophenet, dendrogram
+from scipy.cluster._optimal_leaf_ordering import squareform
+from scipy.cluster.hierarchy import cophenet
+from scipy.cluster.hierarchy import fcluster
+from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from sklearn.metrics import davies_bouldin_score
 from sklearn.metrics import silhouette_score
-import seaborn as sb
+from sklearn.metrics import classification_report
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn import tree
 
 
-def plot_brain(img_path, coords, ref_path=None):
-    img = nimg.load_img(img_path)
-    config = os.path.basename(os.path.dirname(img_path))
-    img_label = f'{config[:6]}'
+def clusterize_hierch(dataset: pd.DataFrame, correlations: pd.DataFrame, ids: list, nb_clusters: object, metric: str,
+                      threshold: object = 0.2) -> object:
+    """
 
-    axes_idx = [0, 1, 2]
-    if ref_path:
-        axes_idx = [1, 3, 5, 0, 2, 4]
+    :param threshold:
+    :param correlations:
+    :param dataset: DataFrame
+    :param ids: list of configs ids
+    :param nb_clusters:
+    :param metric: 'spearman', 'dice', jaccard'
+    :return:
+    """
 
-    fig, axes = plt.subplots(1, len(axes_idx), figsize=(15, 5))
+    filtered_ds = dataset[dataset['id'].isin(ids)].copy()
+    filtered_corr = correlations[correlations['source'].isin(ids) & correlations['target'].isin(ids)].copy()
+    filtered_matrix = filtered_corr.pivot(index='source', columns='target', values=metric).fillna(1.0)
+    filtered_distance_matrix = 1 - filtered_matrix
 
-    plotting.plot_stat_map(img, cut_coords=[coords[0]], display_mode='x', axes=axes[axes_idx[0]], vmin=-3, vmax=3,
-                           title=img_label, colorbar=False)
-    plotting.plot_stat_map(img, cut_coords=[coords[1]], display_mode='y', axes=axes[axes_idx[1]], vmin=-3, vmax=3,
-                           title=img_label, colorbar=False)
-    plotting.plot_stat_map(img, cut_coords=[coords[2]], display_mode='z', axes=axes[axes_idx[2]], vmin=-3, vmax=3,
-                           title=img_label, colorbar=False)
-    if ref_path:
-        ref_img = nimg.load_img(ref_path)
-        ref_label = f'{os.path.splitext(os.path.basename(ref_path))[0]}'
-        plotting.plot_stat_map(ref_img, cut_coords=[coords[0]], display_mode='x', axes=axes[axes_idx[3]],
-                               title=ref_label, colorbar=False)
-        plotting.plot_stat_map(ref_img, cut_coords=[coords[1]], display_mode='y', axes=axes[axes_idx[4]],
-                               title=ref_label, colorbar=False)
-        plotting.plot_stat_map(ref_img, cut_coords=[coords[2]], display_mode='z', axes=axes[axes_idx[5]],
-                               title=ref_label, colorbar=False)
-    plt.show()
+    Z = linkage(squareform(filtered_distance_matrix), method='ward')
+
+    if nb_clusters is not None:
+        clusters = fcluster(Z, nb_clusters, criterion='maxclust')
+    else:
+        clusters = fcluster(Z, t=threshold, criterion='distance')
+
+    matrix_df = pd.DataFrame(filtered_distance_matrix)
+    matrix_df['cluster'] = clusters
+    cluster_centroids = matrix_df.groupby('cluster').mean().mean(axis=1)
+    sorted_clusters = cluster_centroids.sort_values().index
+    consistent_label_mapping = {old_label: new_label + 1 for new_label, old_label in enumerate(sorted_clusters)}
+    consistent_clusters = matrix_df['cluster'].map(consistent_label_mapping)
+
+    mapping = pd.DataFrame({'config': filtered_distance_matrix.index, 'cluster': consistent_clusters})
+    for id, row in mapping.iterrows():
+        config = row['config']
+        cluster = row['cluster']
+        filtered_ds.loc[filtered_ds['id'] == config, 'cluster'] = int(cluster)
+
+    filtered_ds = filtered_ds.sort_values(by='id', ascending=False)
+    return filtered_ds, filtered_matrix, Z, consistent_clusters
+
+
+def predict_clusters(dataset, correlations, nb_clusters, corr_func, threshold=0.2, train_size=0.7):
+    results = dict()
+    results['train_size'] = train_size
+    ignored = [col for col in dataset.columns if col.startswith('from_')]
+    ignored.extend(['id', 'cluster'])
+
+    # Cluster the entire dataset once
+    if nb_clusters is not None:
+        ds, matrix, Z, clusters = clusterize_hierch(dataset, correlations, dataset['id'].tolist(), nb_clusters, corr_func)
+    else:
+        ds, matrix, Z, clusters = clusterize_hierch(dataset, correlations, dataset['id'].tolist(), None, corr_func, threshold)
+
+    # Split into train and test sets after clustering
+    X = ds.drop(columns=ignored)
+    y = ds['cluster']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=train_size, random_state=42)
+
+    # Train the classifier
+    classifier = DecisionTreeClassifier(random_state=42)
+    classifier.fit(X_train, y_train)
+    y_pred = classifier.predict(X_test)
+
+    # Use all unique clusters for target_names
+    all_classes = sorted(set(y_test.unique()).union(set(np.unique(y_pred))))
+    target_names = [str(name) for name in all_classes]
+
+    report = classification_report(y_test, y_pred, target_names=target_names, output_dict=True, zero_division=0)
+    results['accuracy'] = report['accuracy']
+    results['recall'] = report['macro avg']['recall']
+
+    # Decision tree visualization
+    results['decision_tree'] = tree.export_graphviz(classifier, out_file=None,
+                                                    feature_names=X_train.columns.values,
+                                                    filled=True, rounded=True,
+                                                    special_characters=True,
+                                                    leaves_parallel=True, proportion=True)
+
+    # Feature importances
+    features = X_train.columns
+    importances = classifier.feature_importances_
+    feat_importances = {feat: imp for feat, imp in zip(features, importances) if imp > 0.0}
+    results['feature_importances'] = feat_importances
+
+    return results
+
 
 
 def get_cluster_distance_densities(dist_values, cluster_labels):
@@ -94,18 +154,14 @@ def get_medoids(distance_matrix: pd.DataFrame, clusters: pd.Series):
 
     return medoids
 
+def get_antimedoids(distance_matrix: pd.DataFrame, clusters: pd.Series):
+    antimedoids = {}
+    unique_clusters = clusters.unique()
+    for cluster in unique_clusters:
+        cluster_indices = clusters[clusters == cluster].index
+        cluster_distance_matrix = distance_matrix.loc[cluster_indices, cluster_indices]
+        sum_distances = cluster_distance_matrix.sum(axis=1)
+        antimedoid_id = sum_distances.idxmax()
+        antimedoids[cluster] = antimedoid_id
+    return antimedoids
 
-def plot_dendogram(z_linkage):
-    plt.figure(figsize=(10, 5))
-    dendrogram(z_linkage, truncate_mode='lastp', p=50)  # Show last 50 merges
-    plt.title('Dendrogram')
-    plt.show()
-
-
-def plot_heatmap(matrix, z_linkage):
-    plt.figure(figsize=(12, 12))
-    cmap = LinearSegmentedColormap.from_list("red_cmap", ["#FFCCCC", "#FF0000"])
-    sb.clustermap(matrix, cmap=cmap, vmin=0, vmax=1, row_cluster=False, col_cluster=False, row_linkage=z_linkage,
-                  col_linkage=z_linkage)
-    plt.title('Correlation Heatmap')
-    plt.show()
