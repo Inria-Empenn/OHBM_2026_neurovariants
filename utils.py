@@ -31,7 +31,7 @@ def clusterize_hierch(dataset: pd.DataFrame, correlations: pd.DataFrame, ids: li
     filtered_matrix = filtered_corr.pivot(index='source', columns='target', values=metric).fillna(1.0)
     filtered_distance_matrix = 1 - filtered_matrix
 
-    Z = linkage(squareform(filtered_distance_matrix), method='ward')
+    Z = linkage(squareform(filtered_distance_matrix), method='complete')
 
     if nb_clusters is not None:
         clusters = fcluster(Z, nb_clusters, criterion='maxclust')
