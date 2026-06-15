@@ -1,0 +1,140 @@
+features
+    pipeline {abstract}
+        mandatory
+            preprocessing
+                mandatory
+                    motion_correction_realignment {doc 'Correct brain misalignment across time serie due to head or physiological motion'}
+                        mandatory
+                            "motion_correction_realignment/tool"
+                                alternative
+                                    "motion_correction_realignment/tool/spm"
+                            "motion_correction_realignment/register_to" {doc 'Image to use as reference'}
+                                alternative
+                                    "motion_correction_realignment/register_to/first"
+                                    "motion_correction_realignment/register_to/mean" {reference}
+                    coregistration {doc 'Align anatomical and functional images of each subjects'}
+                        mandatory
+                            "coregistration/tool"
+                                alternative
+                                    "coregistration/tool/spm"
+                            "coregistration/source_target"
+                                alternative
+                                    "coregistration/source_target/anat_on_func" {reference 'yes'}
+                                    "coregistration/source_target/func_on_anat"
+                            "coregistration/cost_function"
+                                alternative
+                                    "coregistration/cost_function/mutual_information"
+                                    "coregistration/cost_function/normalised_mutual_information" {reference 'yes'}
+                                    "coregistration/cost_function/entropy_correlation_coefficient"
+                                    "coregistration/cost_function/normalised_cross_correlation"
+                    spatial_normalization {doc 'Segment then align subjects images to a common template'} // add MNI template
+                         mandatory
+                            "spatial_normalization/tool"
+                                alternative
+                                    "spatial_normalization/tool/spm"
+                            "spatial_normalization/template"
+                                    alternative
+                                        "spatial_normalization/template/Ixi549Space"
+                                        "spatial_normalization/template/MNI305"
+                                        "spatial_normalization/template/MNI152_linear"
+                                        "spatial_normalization/template/MNI152_nonlinear"
+                            "spatial_normalization/algorithm"
+                                alternative
+                                    "spatial_normalization/algorithm/linear" // pas dans SPM
+                                    "spatial_normalization/algorithm/nonlinear" {reference 'yes'}// SPM : seg + normalisation
+                                    "spatial_normalization/algorithm/DARTEL" // DARTEL
+                            "spatial_normalization/interpolation" {doc 'Interpolation method to use'}
+                                alternative
+                                    "spatial_normalization/interpolation/nearest_neighbour"
+                                    "spatial_normalization/interpolation/trilinear"
+                                    "spatial_normalization/interpolation/bspline" {reference 'yes'}
+                         optional
+                            "spatial_normalization/bias_regularisation"
+                                alternative
+                                    "spatial_normalization/bias_regularisation/extremely_light"
+                                    "spatial_normalization/bias_regularisation/very_light"
+                                    "spatial_normalization/bias_regularisation/light"
+                                    "spatial_normalization/bias_regularisation/medium"
+                                    "spatial_normalization/bias_regularisation/heavy"
+                            "spatial_normalization/bias_fwhm"
+                                alternative
+                                    "spatial_normalization/bias_fwhm/30"
+                                    "spatial_normalization/bias_fwhm/40"
+                                    "spatial_normalization/bias_fwhm/60"
+                                    "spatial_normalization/bias_fwhm/70"
+                                    "spatial_normalization/bias_fwhm/80"
+                                    "spatial_normalization/bias_fwhm/90"
+                                    "spatial_normalization/bias_fwhm/100"
+                                    "spatial_normalization/bias_fwhm/110"
+                                    "spatial_normalization/bias_fwhm/120"
+                                    "spatial_normalization/bias_fwhm/130"
+                                    "spatial_normalization/bias_fwhm/140"
+                                    "spatial_normalization/bias_fwhm/150"
+                    spatial_smoothing {doc 'Remove high frequency information to increase the signal/noise ratio (blurring)'}
+                        mandatory
+                            "spatial_smoothing/tool"
+                                alternative
+                                    "spatial_smoothing/tool/spm"
+                        optional
+                            "spatial_smoothing/fwhm"  {doc 'Size (in mm) of the smoothing kernel'}
+                                alternative
+                                    "spatial_smoothing/fwhm/2"
+                                    "spatial_smoothing/fwhm/4"
+                                    "spatial_smoothing/fwhm/6" {reference 'yes'}
+                                    "spatial_smoothing/fwhm/8"
+                                    "spatial_smoothing/fwhm/10"
+                                    "spatial_smoothing/fwhm/12"
+                                    "spatial_smoothing/fwhm/14"
+                optional
+                    distorsion_correction {doc 'Correct dropout and distorsion due to scanner magnetic field inhomogeneity'}
+                    segmentation // Categorize the different tissues composing the brain (WM, GM, CSF)
+                        mandatory
+                            "segmentation/tool"
+                                alternative
+                                    "segmentation/tool/spm"
+                    slice_timing_correction {doc 'Correct differences in slices acquisition timing'}
+                        mandatory
+                            "slice_timing_correction/tool"
+                                alternative
+                                    "slice_timing_correction/tool/spm"
+                            "slice_timing_correction/ref_slice" {doc 'Slice to use as reference'}
+                                alternative
+                                    "slice_timing_correction/ref_slice/first"
+                                    "slice_timing_correction/ref_slice/middle" {reference}
+            first_level
+                mandatory
+                    "signal_modeling"
+                        mandatory
+                            "signal_modeling/tool"
+                                alternative
+                                    "signal_modeling/tool/spm"
+                            "signal_modeling/hrf"
+                                alternative
+                                    "signal_modeling/hrf/canonical"
+                                    "signal_modeling/hrf/temporal_derivs" {reference}
+                                    "signal_modeling/hrf/temporal_dispersion_derivs"
+                            "signal_modeling/temporal_noise_autocorrelation"
+                                alternative
+                                    "signal_modeling/temporal_noise_autocorrelation/AR1"
+                                    "signal_modeling/temporal_noise_autocorrelation/FAST" {reference}// => SPM
+                        optional
+                            "signal_modeling/nuisance_regressors"
+                                or
+                                    "signal_modeling/nuisance_regressors/motion"
+                                        alternative
+                                            "signal_modeling/nuisance_regressors/motion/6"
+                                            "signal_modeling/nuisance_regressors/motion/18"
+                                            "signal_modeling/nuisance_regressors/motion/24" {reference}
+                                    "signal_modeling/nuisance_regressors/comp_cor" // from fMRIPrep
+constraints
+    "spatial_smoothing/fwhm/6"
+    "spatial_normalization/algorithm/linear" => !"spatial_normalization/tool/spm"
+    "spatial_normalization/tool/spm" <=> segmentation
+    !"spatial_normalization/algorithm/DARTEL" // only with group analysis
+    !"spatial_normalization/bias_regularisation" // variation not typical
+    !"spatial_normalization/bias_fwhm" // variation not typical
+    !"distorsion_correction" // needs a fieldmap
+    "spatial_normalization/tool/spm" => "spatial_normalization/template/Ixi549Space"
+    "spatial_normalization/tool/spm" => !"spatial_normalization/algorithm/linear"
+    !"signal_modeling/nuisance_regressors/comp_cor" // needs fMRIPrep
+    "signal_modeling/temporal_noise_autocorrelation/FAST" => "signal_modeling/tool/spm"

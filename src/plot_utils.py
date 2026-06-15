@@ -19,21 +19,21 @@ def plot_brain(img_path, coords, ref_path=None):
 
     fig, axes = plt.subplots(1, len(axes_idx), figsize=(15, 5))
 
-    plotting.plot_stat_map(img, cut_coords=[coords[0]], display_mode='x', axes=axes[axes_idx[0]], vmin=-3, vmax=3,
-                           title=img_label, colorbar=False)
+    plotting.plot_stat_map(img, cut_coords=[coords[0]], display_mode='ortho', axes=axes[axes_idx[0]], vmin=-3, vmax=3,
+                           title=img_label, colorbar=False, )
     plotting.plot_stat_map(img, cut_coords=[coords[1]], display_mode='y', axes=axes[axes_idx[1]], vmin=-3, vmax=3,
-                           title=img_label, colorbar=False)
+                           colorbar=False)
     plotting.plot_stat_map(img, cut_coords=[coords[2]], display_mode='z', axes=axes[axes_idx[2]], vmin=-3, vmax=3,
-                           title=img_label, colorbar=False)
+                           colorbar=True)
     if ref_path:
         ref_img = nimg.load_img(ref_path)
         ref_label = f'{os.path.splitext(os.path.basename(ref_path))[0]}'
         plotting.plot_stat_map(ref_img, cut_coords=[coords[0]], display_mode='x', axes=axes[axes_idx[3]],
-                               title=ref_label, colorbar=False)
+                               colorbar=False)
         plotting.plot_stat_map(ref_img, cut_coords=[coords[1]], display_mode='y', axes=axes[axes_idx[4]],
-                               title=ref_label, colorbar=False)
+                               colorbar=False)
         plotting.plot_stat_map(ref_img, cut_coords=[coords[2]], display_mode='z', axes=axes[axes_idx[5]],
-                               title=ref_label, colorbar=False)
+                               colorbar=True)
     plt.show()
 
 def plot_dendogram(z_linkage):
