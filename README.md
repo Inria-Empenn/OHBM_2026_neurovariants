@@ -6,7 +6,7 @@ Abstract and poster available at https://inria.hal.science/hal-05525807.
 
 ## How to cite?
 
-See [CITATION](CITATION).
+See [CITATION](CITATION.md).
 
 # Contents overview
 
