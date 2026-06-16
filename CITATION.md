@@ -1,0 +1,1 @@
+Youenn Merel Jourdan, Mathieu Acher, Camille Maumet. A systematic and large-scale exploration of analytical variability in task-fMRI. OHBM 2026 - Annual Meeting of the Organization for Human Brain Mapping, Organization for Human Brain Mapping (OHBM), Jun 2026, Bordeaux, France. [⟨hal-05458481v2⟩](https://inria.hal.science/hal-05458481v2)
